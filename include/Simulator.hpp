@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Channel.hpp"
+#include "Common.hpp"
 #include "Engine.hpp"
 #include "Node.hpp"
 #include <memory>
@@ -24,6 +26,7 @@ private:
 
   std::shared_ptr<Node> nodeA_;
   std::shared_ptr<Node> nodeB_;
+  std::shared_ptr<Channel> channel_;
 
   void SetupTopology(uint32_t window_size, size_t segment_size);
 };

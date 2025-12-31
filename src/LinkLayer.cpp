@@ -29,6 +29,37 @@ void LinkLayer::SetPaused(bool paused) {
 }
 
 void LinkLayer::Receive(std::shared_ptr<const Frame> frame_ptr) {
+  // Verify checksum
+  uint32_t received_checksum = frame_ptr->header.link_header.checksum;
+
+  // Compute checksum over the frame data (with checksum field set to 0)
+  std::vector<uint8_t> data_to_verify;
+  data_to_verify.reserve(sizeof(FrameHeader) + frame_ptr->payload.size());
+
+  // Copy header and zero out checksum field
+  FrameHeader header_copy = frame_ptr->header;
+  header_copy.link_header.checksum = 0;
+
+  // Add header bytes
+  const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&header_copy);
+  data_to_verify.insert(data_to_verify.end(), header_bytes, header_bytes + sizeof(FrameHeader));
+
+  // Add payload bytes
+  const uint8_t* payload_bytes = reinterpret_cast<const uint8_t*>(frame_ptr->payload.data());
+  data_to_verify.insert(data_to_verify.end(), payload_bytes, payload_bytes + frame_ptr->payload.size());
+
+  // Compute expected checksum
+  uint32_t computed_checksum = crc32_.calculate(data_to_verify.data(), data_to_verify.size());
+
+  // Discard frame if checksum doesn't match
+  if (computed_checksum != received_checksum) {
+    // Frame is corrupted, discard it silently
+    std::cout << "[LinkLayer] Discarding corrupted frame "
+              << frame_ptr->header.link_header.seq_num << std::endl;
+    return;
+  }
+
+  // Checksum is valid, process the frame
   if (frame_ptr->header.link_header.type == FrameType::ACK) {
     HandleAck(frame_ptr);
   } else {
@@ -52,6 +83,8 @@ void LinkLayer::TrySendNext() {
     frame->header.link_header.type = FrameType::DATA;
     frame->header.link_header.seq_num = next_seq_num_;
     frame->header.link_header.ack_num = 0;
+
+    ComputeAndSetChecksum(frame);
 
     // Push BEFORE transmitting safely
     send_window_.push_back({frame, false, 0});
@@ -156,6 +189,8 @@ void LinkLayer::HandleData(std::shared_ptr<const Frame> frame) {
 }
 
 void LinkLayer::HandleTimeout(uint32_t seq_num) {
+  std::cout << "[LinkLayer] Timeout for seq_num " << seq_num << std::endl;
+
   // Retransmit logic
   if (seq_num >= send_base_) {
     size_t idx = seq_num - send_base_;
@@ -185,7 +220,28 @@ void LinkLayer::SendAck(uint32_t ack_num) {
   frame->header.link_header.type = FrameType::ACK;
   frame->header.link_header.ack_num = ack_num;
 
+  ComputeAndSetChecksum(frame);
   phy_->Transmit(frame);
+}
+
+void LinkLayer::ComputeAndSetChecksum(std::shared_ptr<Frame> frame) {
+  // Zero out checksum field before computing
+  frame->header.link_header.checksum = 0;
+
+  // Compute CRC32 checksum over header + payload
+  std::vector<uint8_t> data_to_hash;
+  data_to_hash.reserve(sizeof(FrameHeader) + frame->payload.size());
+
+  // Add header bytes
+  const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&frame->header);
+  data_to_hash.insert(data_to_hash.end(), header_bytes, header_bytes + sizeof(FrameHeader));
+
+  // Add payload bytes
+  const uint8_t* payload_bytes = reinterpret_cast<const uint8_t*>(frame->payload.data());
+  data_to_hash.insert(data_to_hash.end(), payload_bytes, payload_bytes + frame->payload.size());
+
+  // Compute and store checksum
+  frame->header.link_header.checksum = crc32_.calculate(data_to_hash.data(), data_to_hash.size());
 }
 
 } // namespace ARQ

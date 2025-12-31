@@ -1,5 +1,6 @@
 #include "PhysicalLayer.hpp"
 #include "Common.hpp"
+#include "Channel.hpp"
 #include "LinkLayer.hpp"
 #include <cmath>
 
@@ -18,7 +19,14 @@ void PhysicalLayer::SetUpperLayer(std::shared_ptr<LinkLayer> upper) {
   upper_layer_ = upper;
 }
 
+void PhysicalLayer::SetChannel(std::shared_ptr<Channel> channel) {
+  channel_ = channel;
+}
+
 void PhysicalLayer::Transmit(std::shared_ptr<const Frame> frame) {
+  std::cout << "[PhysicalLayer] Transmitting frame " << frame->header.link_header.seq_num
+            << std::endl;
+
   // Serialization Delay = SizeInBits / BitRate
   // Size = Header + Payload
   size_t total_bytes = sizeof(FrameHeader) + frame->payload.size();
@@ -29,29 +37,19 @@ void PhysicalLayer::Transmit(std::shared_ptr<const Frame> frame) {
   uint64_t serialization_micros = (total_bits * 1'000'000) / bit_rate_;
   std::chrono::microseconds ser_delay(serialization_micros);
 
-  // Propagation Delay
-  // Total Delay = Ser + Prop
-  SimTime arrival_delay = ser_delay + propagation_delay_;
+  // Get propagation delay from channel
+  auto prop_delay = channel_->GetPropagationDelay(shared_from_this());
 
-  // Schedule Arrival at Peer
-  // Note: Peer must exist (weak_ptr lock)
-  if (auto peer = peer_phy_.lock()) {
-    // Capture frame and peer by value/shared_ptr
-    engine_.Schedule(arrival_delay,
-                     [peer, frame]() { peer->OnFrameArrival(frame); });
-  }
+  // Total Delay = Ser + Prop
+  SimTime total_delay = ser_delay + prop_delay;
+
+  // Transmit through channel (channel will add errors and deliver to receiver)
+  channel_->Transmit(shared_from_this(), frame, total_delay);
 }
 
 void PhysicalLayer::OnFrameArrival(std::shared_ptr<const Frame> frame) {
-  UpdateChannelState();
-
-  // Calculate total size including headers
-  size_t total_bytes = sizeof(FrameHeader) + frame->payload.size();
-
-  if (ShouldDrop(total_bytes)) {
-    // Drop packet
-    return;
-  }
+  std::cout << "[PhysicalLayer] Frame arrived " << frame->header.link_header.seq_num
+            << std::endl;
 
   // Processing Delay before handing to Upper Layer
   SimTime proc_delay = PROCESSING_DELAY();
@@ -59,26 +57,6 @@ void PhysicalLayer::OnFrameArrival(std::shared_ptr<const Frame> frame) {
   if (auto up = upper_layer_.lock()) {
     engine_.Schedule(proc_delay, [up, frame]() { up->Receive(frame); });
   }
-}
-
-void PhysicalLayer::UpdateChannelState() {
-  double roll = dist_(rng_);
-  if (state_ == ChannelState::GOOD) {
-    if (roll < P_GOOD_TO_BAD()) {
-      state_ = ChannelState::BAD;
-    }
-  } else {
-    if (roll < P_BAD_TO_GOOD()) {
-      state_ = ChannelState::GOOD;
-    }
-  }
-}
-
-bool PhysicalLayer::ShouldDrop(size_t packet_size_bytes) {
-  double ber = (state_ == ChannelState::GOOD) ? BER_GOOD() : BER_BAD();
-  // PER = 1 - (1 - BER)^bits
-  double per = 1.0 - std::pow(1.0 - ber, packet_size_bytes * 8);
-  return dist_(rng_) < per;
 }
 
 } // namespace ARQ
