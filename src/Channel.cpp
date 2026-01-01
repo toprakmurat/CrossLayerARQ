@@ -1,6 +1,7 @@
 #include "Channel.hpp"
 #include <random>
 #include <set>
+#include <iostream>
 
 namespace ARQ
 {
@@ -47,6 +48,7 @@ namespace ARQ
       if (roll < P_GOOD_TO_BAD())
       {
         state_ = State::BAD;
+        std::cout << "[Channel] State changed to BAD." << std::endl;
       }
     }
     else
@@ -54,6 +56,7 @@ namespace ARQ
       if (roll < P_BAD_TO_GOOD())
       {
         state_ = State::GOOD;
+        std::cout << "[Channel] State changed to GOOD." << std::endl;
       }
     }
   }
@@ -67,6 +70,11 @@ namespace ARQ
     // Compute number of bit errors based on BER
     std::binomial_distribution<size_t> error_dist(total_bits, ber);
     size_t num_errors = error_dist(rng_);
+
+    if (num_errors > 0) {
+      std::cout << "[Channel] Introducing " << num_errors << " bit errors in frame "
+                << frame->header.link_header.seq_num << std::endl;
+    }
 
     // Create a modifiable copy of the frame
     auto corrupted_frame = std::make_shared<Frame>(*frame);
@@ -103,6 +111,9 @@ namespace ARQ
 
     engine_.Schedule(delay, [this, receiver, corrupted_frame]()
                      { receiver->OnFrameArrival(corrupted_frame); });
+
+    // Update channel state after each transmission
+    UpdateChannelState();
   }
 
 }
