@@ -30,6 +30,13 @@ void LinkLayer::SetPaused(bool paused) {
 }
 
 void LinkLayer::Receive(std::shared_ptr<const Frame> frame_ptr) {
+  bool has_error = (frame_ptr->header.link_header.flags & 0x01) != 0;
+  if (has_error) {
+    std::cout << "[LinkLayer] Received corrupted frame " << frame_ptr->header.link_header.seq_num
+              << ". Discarding." << std::endl;
+    return;
+  }
+
   if (frame_ptr->header.link_header.type == FrameType::ACK) {
     HandleAck(frame_ptr);
   } else {

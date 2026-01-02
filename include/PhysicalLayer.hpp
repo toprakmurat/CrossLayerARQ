@@ -23,7 +23,7 @@ public:
   void Transmit(std::shared_ptr<const Frame> frame);
 
   // --- RECEIVER API ---
-  void OnFrameArrival(std::shared_ptr<const Frame> frame, bool has_error);
+  void OnFrameArrival(std::shared_ptr<const Frame> frame);
 
 private:
   SimulatorEngine &engine_;

@@ -48,18 +48,12 @@ void PhysicalLayer::Transmit(std::shared_ptr<const Frame> frame) {
   channel_->Transmit(shared_from_this(), frame, total_delay);
 }
 
-void PhysicalLayer::OnFrameArrival(std::shared_ptr<const Frame> frame, bool has_error) {
+void PhysicalLayer::OnFrameArrival(std::shared_ptr<const Frame> frame) {
   std::cout << "[PhysicalLayer] Frame arrived " << frame->header.link_header.seq_num
             << std::endl;
 
   // Processing Delay before handing to Upper Layer
   SimTime proc_delay = PROCESSING_DELAY();
-
-  if (has_error) {
-    std::cout << "[PhysicalLayer] Frame " << frame->header.link_header.seq_num
-              << " has errors. Dropping." << std::endl;
-    return;
-  }
 
   if (auto up = upper_layer_.lock()) {
     engine_.Schedule(proc_delay, [up, frame]() { up->Receive(frame); });

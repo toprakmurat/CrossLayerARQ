@@ -69,11 +69,18 @@ namespace ARQ
     double per = 1.0 - std::pow(1.0 - ber, static_cast<double>(total_bits));
     bool has_error = (dist_(rng_) < per);
 
+    Frame modified_frame = *frame; // Copy to modify flags
+
+    if (has_error) {
+      std::cout << "[Channel] Frame " << frame->header.link_header.seq_num
+                << " corrupted during transmission." << std::endl;
+      modified_frame.header.link_header.flags |= 0x01; // Set has_error flag
+    }
 
     std::shared_ptr<PhysicalLayer> receiver = (sender == phyA_) ? phyB_ : phyA_;
 
-    engine_.Schedule(delay, [this, receiver, frame, has_error]()
-                     { receiver->OnFrameArrival(frame, has_error); });
+    engine_.Schedule(delay, [this, receiver, modified_frame]()
+                     { receiver->OnFrameArrival(std::make_shared<const Frame>(modified_frame)); });
 
     // Update channel state after each transmission
     UpdateChannelState();

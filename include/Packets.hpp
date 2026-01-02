@@ -20,8 +20,8 @@ struct TransportHeader {
 static_assert(sizeof(TransportHeader) == 8, "TransportHeader must be 8 bytes");
 
 struct LinkHeader {
-  FrameType type; // sizeof(Fra meType) = 1
-  uint8_t flags;
+  FrameType type; // sizeof(FrameType) = 1
+  uint8_t flags; // bit_0: has_error
   uint32_t checksum;
   uint32_t seq_num;
   uint32_t ack_num;
