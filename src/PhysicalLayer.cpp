@@ -1,7 +1,7 @@
 #include "PhysicalLayer.hpp"
+#include "Common.hpp"
 #include "LinkLayer.hpp"
 #include <cmath>
-#include <iostream>
 
 namespace ARQ {
 

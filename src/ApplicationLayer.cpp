@@ -1,6 +1,6 @@
 #include "ApplicationLayer.hpp"
+#include "Common.hpp"
 #include "TransportLayer.hpp"
-#include <iostream>
 
 namespace ARQ {
 
@@ -20,30 +20,28 @@ void ApplicationLayer::StartTransmission() {
 }
 
 void ApplicationLayer::GenerateChunk() {
-  // 4KB Chunk
   size_t chunk_size = 4096;
-  if (total_bytes_sent_ >= TOTAL_FILE_SIZE_BYTES())
-    return; // Cap at 100MB
 
-  std::vector<std::byte> chunk(chunk_size);
-  // Fill dummy
+  while (total_bytes_sent_ < TOTAL_FILE_SIZE_BYTES()) {
+    size_t remaining = TOTAL_FILE_SIZE_BYTES() - total_bytes_sent_;
+    size_t s = std::min(chunk_size, remaining);
 
-  transport_->SendDown(std::move(chunk));
-  total_bytes_sent_ += chunk_size;
+    std::vector<std::byte> chunk(s);
+    // TODO: Fill dummy data, currently it's empty
 
-  // Continue?
-  // In a real loop we'd schedule next. Here we just do one for now to match
-  // main loop test.
+    transport_->SendDown(chunk); // Implicit conversion to span<const byte>
+    total_bytes_sent_ += s;
+  }
 }
 
-void ApplicationLayer::Receive(std::span<const std::byte> data_view) {
+bool ApplicationLayer::Receive(std::span<const std::byte> data_view) {
+  if (current_buffer_usage_ + data_view.size() > RECEIVER_BUFFER_SIZE_BYTES()) {
+    return false;
+  }
+
   total_bytes_received_ += data_view.size();
   current_buffer_usage_ += data_view.size();
-
-  if (current_buffer_usage_ >= RECEIVER_BUFFER_SIZE_BYTES()) {
-    // Backpressure handling is implicit via
-    // TransportLayer::OnAppBufferAvailable and SetPaused logic.
-  }
+  return true;
 }
 
 void ApplicationLayer::ConsumeData(size_t bytes_processed) {
@@ -53,9 +51,11 @@ void ApplicationLayer::ConsumeData(size_t bytes_processed) {
     current_buffer_usage_ -= bytes_processed;
   }
 
-  if (current_buffer_usage_ < RECEIVER_BUFFER_SIZE_BYTES() / 2) {
-    if (auto t = transport_)
+  // Signal when there is available space
+  if (current_buffer_usage_ < RECEIVER_BUFFER_SIZE_BYTES()) {
+    if (auto t = transport_) {
       t->OnAppBufferAvailable();
+    }
   }
 }
 

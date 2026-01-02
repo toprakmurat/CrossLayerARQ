@@ -2,13 +2,11 @@
 #include "Memory.hpp"
 #include "PhysicalLayer.hpp"
 #include "TransportLayer.hpp"
-#include <algorithm>
-#include <iostream>
 
 namespace ARQ {
 
 LinkLayer::LinkLayer(SimulatorEngine &engine, uint32_t window_size)
-    : engine_(engine), window_size_(window_size) {}
+    : engine_(engine), window_size_(window_size), rx_window_(window_size) {}
 
 void LinkLayer::SetLowerLayer(std::shared_ptr<PhysicalLayer> phy) {
   phy_ = phy;
@@ -106,24 +104,64 @@ void LinkLayer::HandleAck(std::shared_ptr<const Frame> frame) {
 }
 
 void LinkLayer::HandleData(std::shared_ptr<const Frame> frame) {
-  SendAck(frame->header.link_header.seq_num);
+  uint32_t seq = frame->header.link_header.seq_num;
 
-  // Pass Up
-  if (auto t = transport_.lock()) {
-    std::pmr::vector<std::byte> payload_copy = frame->payload;
-    t->ReceiveUp(frame->header.transport_header, std::move(payload_copy));
+  // Check if frame is within the Receptive Window [rx_base, rx_base + W)
+  if (seq >= rx_base_ && seq < rx_base_ + window_size_) {
+    size_t idx = seq - rx_base_;
+
+    // Map seq to window index [0, window_size)
+    if (idx < rx_window_.size()) {
+      if (!rx_window_[idx].received) {
+        // Store the frame
+        std::pmr::polymorphic_allocator<Frame> alloc(Memory::packets());
+        auto stored_frame =
+            std::allocate_shared<Frame>(alloc, Memory::packets());
+        stored_frame->header = frame->header;
+        stored_frame->payload = frame->payload;
+
+        rx_window_[idx].frame = stored_frame;
+        rx_window_[idx].received = true;
+      }
+      // Always ACK received packet in window
+      SendAck(seq);
+    }
+  } else if (seq < rx_base_) {
+    // Duplicate/Old packet, must re-ACK to move sender forward
+    SendAck(seq);
+  }
+
+  // Try to deliver contiguous frames from rx_base_
+  while (!rx_window_.empty() && rx_window_.front().received) {
+    auto &slot = rx_window_.front();
+
+    // Try to pass up
+    if (auto t = transport_.lock()) {
+      bool accepted = t->ReceiveUp(slot.frame->header.transport_header,
+                                   slot.frame->payload);
+
+      if (accepted) {
+        // Slide window
+        rx_window_.erase(rx_window_.begin());
+        rx_window_.push_back(RxWindowSlot{});
+        rx_base_++;
+      } else {
+        // TODO: Backpressure handling
+        break;
+      }
+    } else {
+      break;
+    }
   }
 }
 
 void LinkLayer::HandleTimeout(uint32_t seq_num) {
   // Retransmit logic
-  // Find packet in window
   if (seq_num >= send_base_) {
     size_t idx = seq_num - send_base_;
     if (idx < send_window_.size()) {
       auto &slot = send_window_[idx];
       if (!slot.acked) {
-        // Retransmit
         phy_->Transmit(slot.frame);
 
         // Reschedule Timer

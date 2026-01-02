@@ -1,9 +1,8 @@
 #pragma once
 
-#include "Common.hpp"
 #include "Packets.hpp"
 #include <memory>
-#include <vector>
+#include <span>
 
 namespace ARQ {
 
@@ -18,10 +17,11 @@ public:
   void SetUpperLayer(std::shared_ptr<ApplicationLayer> app);
 
   // --- SENDER API (Downstream) ---
-  void SendDown(std::vector<std::byte> app_data_chunk);
+  void SendDown(std::span<const std::byte> app_data_chunk);
 
   // --- RECEIVER API (Upstream) ---
-  void ReceiveUp(TransportHeader header, std::pmr::vector<std::byte> payload);
+  bool ReceiveUp(TransportHeader header,
+                 const std::pmr::vector<std::byte> &payload);
 
   // --- CONTROL API ---
   void OnAppBufferAvailable();
@@ -30,6 +30,7 @@ private:
   std::shared_ptr<LinkLayer> link_layer_;
   std::weak_ptr<ApplicationLayer> app_layer_;
   size_t segment_size_;
+  size_t current_buffer_usage_ = 0;
 };
 
 } // namespace ARQ

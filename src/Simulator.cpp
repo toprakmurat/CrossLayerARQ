@@ -1,4 +1,6 @@
 #include "Simulator.hpp"
+#include "Common.hpp"
+#include <iostream>
 
 namespace ARQ {
 
@@ -46,7 +48,7 @@ void Simulator::SetupTopology(uint32_t window_size, size_t segment_size) {
   configB.window_size = window_size;
   configB.segment_size = segment_size;
   configB.is_sender = false;
-  configB.prop_delay = PROPAGATION_DELAY_REV();
+  configB.prop_delay = PROPAGATION_DELAY_RECV();
 
   nodeB_ = std::make_shared<Node>(engine_, configB);
 

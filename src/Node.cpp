@@ -11,8 +11,6 @@ Node::Node(SimulatorEngine &engine, const NodeConfig &config) {
   app_ = std::make_shared<ApplicationLayer>(config.is_sender);
 
   // 2. Wire Internals (Top-Down / Bot-Up)
-  // Using simple SetUpper/Lower which now store weak_ptrs
-
   // Phy <-> Link
   phy_->SetUpperLayer(link_);
   link_->SetLowerLayer(phy_);

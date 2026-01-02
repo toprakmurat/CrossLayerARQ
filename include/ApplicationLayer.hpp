@@ -1,9 +1,7 @@
 #pragma once
 
-#include "Common.hpp"
 #include <memory>
 #include <span>
-#include <vector>
 
 namespace ARQ {
 
@@ -19,7 +17,7 @@ public:
   void StartTransmission();
 
   // --- RECEIVER API (Upstream) ---
-  void Receive(std::span<const std::byte> data_view);
+  bool Receive(std::span<const std::byte> data_view);
 
   // --- CONTROL API ---
   void ConsumeData(size_t bytes_processed);

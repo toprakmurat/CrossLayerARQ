@@ -11,11 +11,11 @@
 namespace ARQ {
 
 struct NodeConfig {
-  uint32_t window_size = 64;
-  size_t segment_size = 1024;
-  bool is_sender = false;
-  uint64_t bit_rate = BIT_RATE_BPS();
-  std::chrono::milliseconds prop_delay = PROPAGATION_DELAY_FWD();
+  uint32_t window_size;
+  size_t segment_size;
+  bool is_sender{false};
+  uint64_t bit_rate{BIT_RATE_BPS()};
+  std::chrono::milliseconds prop_delay{PROPAGATION_DELAY_FWD()};
 };
 
 class Node {

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Common.hpp"
 #include "Engine.hpp"
 #include "Packets.hpp"
 #include <deque>
@@ -35,7 +34,6 @@ private:
   uint32_t window_size_;
   bool is_paused_ = false;
 
-  // --- Sender State ---
   uint32_t next_seq_num_ = 0;
   uint32_t send_base_ = 0;
 
@@ -44,14 +42,21 @@ private:
   };
   std::deque<QueuedItem> pending_queue_;
 
-  struct WindowSlot {
+  // --- Sender Window ---
+  struct TxWindowSlot {
     std::shared_ptr<Frame> frame;
     bool acked = false;
     uint64_t timer_event_id = 0;
   };
-  std::deque<WindowSlot> send_window_;
+  std::deque<TxWindowSlot> send_window_;
 
-  // --- Receiver State ---
+  // --- Receiver Window ---
+  struct RxWindowSlot {
+    std::shared_ptr<Frame> frame;
+    bool received = false;
+  };
+  std::vector<RxWindowSlot> rx_window_;
+  uint32_t rx_base_ = 0;
 
   void HandleAck(std::shared_ptr<const Frame> frame);
   void HandleData(std::shared_ptr<const Frame> frame);

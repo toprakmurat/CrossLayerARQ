@@ -12,7 +12,7 @@ consteval uint64_t BIT_RATE_BPS() { return 10'000'000; } // 10 Mbps
 consteval std::chrono::milliseconds PROPAGATION_DELAY_FWD() {
   return std::chrono::milliseconds(40);
 }
-consteval std::chrono::milliseconds PROPAGATION_DELAY_REV() {
+consteval std::chrono::milliseconds PROPAGATION_DELAY_RECV() {
   return std::chrono::milliseconds(10);
 }
 consteval std::chrono::milliseconds PROCESSING_DELAY() {
