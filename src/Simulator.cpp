@@ -52,9 +52,11 @@ void Simulator::SetupTopology(uint32_t window_size, size_t segment_size) {
 
   nodeB_ = std::make_shared<Node>(engine_, configB);
 
-  // Connect
-  nodeA_->ConnectPeer(nodeB_);
-  nodeB_->ConnectPeer(nodeA_);
+  // Create Channel with forward and reverse propagation delays
+  channel_ = std::make_shared<Channel>(PROPAGATION_DELAY_FWD(), PROPAGATION_DELAY_RECV(), engine_);
+
+  // Connect the two PhysicalLayers through the Channel
+  channel_->Connect(nodeA_->GetPhy(), nodeB_->GetPhy());
 }
 
 } // namespace ARQ

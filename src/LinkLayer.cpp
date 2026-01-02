@@ -2,6 +2,7 @@
 #include "Memory.hpp"
 #include "PhysicalLayer.hpp"
 #include "TransportLayer.hpp"
+#include <iostream>
 
 namespace ARQ {
 
@@ -29,6 +30,13 @@ void LinkLayer::SetPaused(bool paused) {
 }
 
 void LinkLayer::Receive(std::shared_ptr<const Frame> frame_ptr) {
+  bool has_error = (frame_ptr->header.link_header.flags & 0x01) != 0;
+  if (has_error) {
+    std::cout << "[LinkLayer] Received corrupted frame " << frame_ptr->header.link_header.seq_num
+              << ". Discarding." << std::endl;
+    return;
+  }
+
   if (frame_ptr->header.link_header.type == FrameType::ACK) {
     HandleAck(frame_ptr);
   } else {
@@ -156,6 +164,8 @@ void LinkLayer::HandleData(std::shared_ptr<const Frame> frame) {
 }
 
 void LinkLayer::HandleTimeout(uint32_t seq_num) {
+  std::cout << "[LinkLayer] Timeout for seq_num " << seq_num << std::endl;
+
   // Retransmit logic
   if (seq_num >= send_base_) {
     size_t idx = seq_num - send_base_;
@@ -187,5 +197,4 @@ void LinkLayer::SendAck(uint32_t ack_num) {
 
   phy_->Transmit(frame);
 }
-
 } // namespace ARQ

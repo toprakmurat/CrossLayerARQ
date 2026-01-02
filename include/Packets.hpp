@@ -21,12 +21,12 @@ static_assert(sizeof(TransportHeader) == 8, "TransportHeader must be 8 bytes");
 
 struct LinkHeader {
   FrameType type; // sizeof(FrameType) = 1
-  uint8_t flags;
-  uint16_t checksum;
+  uint8_t flags; // bit_0: has_error
+  uint32_t checksum;
   uint32_t seq_num;
   uint32_t ack_num;
   double timestamp;
-  uint32_t padding[1]; // to reach 24 bytes total
+  std::byte padding[2]; // Padding for alignment
 } __attribute__((packed));
 // 1(Type) + 1(Flags) + 2(CRC) + 4(Seq) + 4(Ack) + 8(Time) + 4(Pad) = 24 bytes
 static_assert(sizeof(LinkHeader) == 24, "LinkHeader must be 24 bytes");
