@@ -66,51 +66,14 @@ namespace ARQ
     double ber = (state_ == State::GOOD) ? BER_GOOD() : BER_BAD();
     size_t total_bytes = sizeof(FrameHeader) + frame->payload.size();
     size_t total_bits = total_bytes * 8;
+    double per = 1.0 - std::pow(1.0 - ber, static_cast<double>(total_bits));
+    bool has_error = (dist_(rng_) < per);
 
-    // Compute number of bit errors based on BER
-    std::binomial_distribution<size_t> error_dist(total_bits, ber);
-    size_t num_errors = error_dist(rng_);
-
-    if (num_errors > 0) {
-      std::cout << "[Channel] Introducing " << num_errors << " bit errors in frame "
-                << frame->header.link_header.seq_num << std::endl;
-    }
-
-    // Create a modifiable copy of the frame
-    auto corrupted_frame = std::make_shared<Frame>(*frame);
-
-    // Choose random bit positions and flip them
-    std::uniform_int_distribution<size_t> bit_pos_dist(0, total_bits - 1);
-    std::set<size_t> error_positions;
-    while (error_positions.size() < num_errors)
-    {
-      error_positions.insert(bit_pos_dist(rng_));
-    }
-
-    // Flip bits at selected positions
-    for (size_t bit_pos : error_positions)
-    {
-      size_t byte_index = bit_pos / 8;
-      size_t bit_index = bit_pos % 8;
-
-      if (byte_index < sizeof(FrameHeader))
-      {
-        // Flip bit in header
-        uint8_t *header_bytes = reinterpret_cast<uint8_t *>(&corrupted_frame->header);
-        header_bytes[byte_index] ^= (1 << bit_index);
-      }
-      else
-      {
-        // Flip bit in payload
-        size_t payload_index = byte_index - sizeof(FrameHeader);
-        corrupted_frame->payload[payload_index] ^= std::byte(1 << bit_index);
-      }
-    }
 
     std::shared_ptr<PhysicalLayer> receiver = (sender == phyA_) ? phyB_ : phyA_;
 
-    engine_.Schedule(delay, [this, receiver, corrupted_frame]()
-                     { receiver->OnFrameArrival(corrupted_frame); });
+    engine_.Schedule(delay, [this, receiver, frame, has_error]()
+                     { receiver->OnFrameArrival(frame, has_error); });
 
     // Update channel state after each transmission
     UpdateChannelState();

@@ -23,7 +23,7 @@ public:
   void Transmit(std::shared_ptr<const Frame> frame);
 
   // --- RECEIVER API ---
-  void OnFrameArrival(std::shared_ptr<const Frame> frame);
+  void OnFrameArrival(std::shared_ptr<const Frame> frame, bool has_error);
 
 private:
   SimulatorEngine &engine_;
@@ -33,16 +33,6 @@ private:
   std::weak_ptr<PhysicalLayer> peer_phy_;
   std::weak_ptr<LinkLayer> upper_layer_;
   std::shared_ptr<Channel> channel_;
-
-  // Error Model State
-  enum class ChannelState { GOOD, BAD };
-  ChannelState state_ = ChannelState::GOOD;
-
-  std::mt19937 rng_;
-  std::uniform_real_distribution<double> dist_{0.0, 1.0};
-
-  void UpdateChannelState();
-  bool ShouldDrop(size_t packet_size_bytes);
 };
 
 } // namespace ARQ

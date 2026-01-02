@@ -3,13 +3,14 @@
 #include "Channel.hpp"
 #include "LinkLayer.hpp"
 #include <cmath>
+#include <iostream>
 
 namespace ARQ {
 
 PhysicalLayer::PhysicalLayer(SimulatorEngine &engine, uint64_t bit_rate,
                              std::chrono::milliseconds propagation_delay)
     : engine_(engine), bit_rate_(bit_rate),
-      propagation_delay_(propagation_delay), rng_(std::random_device{}()) {}
+      propagation_delay_(propagation_delay) {}
 
 void PhysicalLayer::SetPeer(std::shared_ptr<PhysicalLayer> peer) {
   peer_phy_ = peer;
@@ -47,12 +48,18 @@ void PhysicalLayer::Transmit(std::shared_ptr<const Frame> frame) {
   channel_->Transmit(shared_from_this(), frame, total_delay);
 }
 
-void PhysicalLayer::OnFrameArrival(std::shared_ptr<const Frame> frame) {
+void PhysicalLayer::OnFrameArrival(std::shared_ptr<const Frame> frame, bool has_error) {
   std::cout << "[PhysicalLayer] Frame arrived " << frame->header.link_header.seq_num
             << std::endl;
 
   // Processing Delay before handing to Upper Layer
   SimTime proc_delay = PROCESSING_DELAY();
+
+  if (has_error) {
+    std::cout << "[PhysicalLayer] Frame " << frame->header.link_header.seq_num
+              << " has errors. Dropping." << std::endl;
+    return;
+  }
 
   if (auto up = upper_layer_.lock()) {
     engine_.Schedule(proc_delay, [up, frame]() { up->Receive(frame); });

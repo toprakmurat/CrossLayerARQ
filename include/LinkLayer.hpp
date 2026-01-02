@@ -33,7 +33,6 @@ private:
   std::weak_ptr<TransportLayer> transport_;
   uint32_t window_size_;
   bool is_paused_ = false;
-  CRC32 crc32_;
 
   uint32_t next_seq_num_ = 0;
   uint32_t send_base_ = 0;
@@ -64,7 +63,6 @@ private:
   void SendAck(uint32_t ack_num);
   void TrySendNext();
   void HandleTimeout(uint32_t seq_num);
-  void ComputeAndSetChecksum(std::shared_ptr<Frame> frame);
 };
 
 } // namespace ARQ

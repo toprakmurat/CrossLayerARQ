@@ -53,7 +53,7 @@ void Simulator::SetupTopology(uint32_t window_size, size_t segment_size) {
   nodeB_ = std::make_shared<Node>(engine_, configB);
 
   // Create Channel with forward and reverse propagation delays
-  channel_ = std::make_shared<Channel>(PROPAGATION_DELAY_FWD(), PROPAGATION_DELAY_REV(), engine_);
+  channel_ = std::make_shared<Channel>(PROPAGATION_DELAY_FWD(), PROPAGATION_DELAY_RECV(), engine_);
 
   // Connect the two PhysicalLayers through the Channel
   channel_->Connect(nodeA_->GetPhy(), nodeB_->GetPhy());
